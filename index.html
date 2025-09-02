@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leather Manufacturing System</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        const { Plus, Download, Upload, Save, FileText, Calculator, Database, Clock, Users, Settings, Camera, AlertTriangle, CheckCircle, User, LogOut, Edit, Trash2, Eye, EyeOff } = lucide;
+
+        const LeatherProductionSystem = () => {
+          // Worker data with hourly rates
+          const workers = {
+            'ГМ1': { name: 'Георги Михайлов', hourlyRate: 15.50, available: true },
+            'ГМ3': { name: 'Мария Георгиева', hourlyRate: 14.20, available: true },
+            'ГМ4': { name: 'Иван Петров', hourlyRate: 16.00, available: true },
+            'НД1': { name: 'Надежда Димитрова', hourlyRate: 13.80, available: false },
+            'ЕМ1': { name: 'Елена Маринова', hourlyRate: 15.00, available: true },
+            'ММ1': { name: 'Милен Миленов', hourlyRate: 17.20, available: true },
+            'ИС1': { name: 'Ивелин Стоянов', hourlyRate: 12.90, available: true },
+            'ХХХ': { name: 'Temp Worker', hourlyRate: 14.50, available: true },
+            'ТГ1': { name: 'Тодор Георгиев', hourlyRate: 18.00, available: true },
+            'ИГ1': { name: 'Ирина Георгиева', hourlyRate: 13.50, available: true }
+          };
+
+          // Operation templates with time values in SECONDS
+          const operationTemplates = [
+            { name: 'основа - черен бланк', timeSeconds: 10800, group: 'кроене' },
+            { name: 'шпалт', timeSeconds: 3600, group: 'кроене' },
+            { name: 'декорация - носталгия роуз', timeSeconds: 3600, group: 'кроене' },
+            { name: 'декорация - етойле синьо', timeSeconds: 3600, group: 'кроене' },
+            { name: 'кроене пяна - 5 мм черна', timeSeconds: 4860, group: 'кроене' },
+            { name: 'кроене хастар', timeSeconds: 4860, group: 'кроене' },
+            { name: 'печат с размер', timeSeconds: 5400, group: 'печат' },
+            { name: 'почистване', timeSeconds: 4200, group: 'печат' },
+            { name: 'печат лого', timeSeconds: 5400, group: 'печат' },
+            { name: 'капси', timeSeconds: 7200, group: 'монтаж' },
+            { name: 'изтъняване декорация', timeSeconds: 3600, group: 'монтаж' },
+            { name: 'траш декорация', timeSeconds: 4800, group: 'монтаж' },
+            { name: 'монтаж шпалт + декорация', timeSeconds: 3600, group: 'монтаж' }
+          ];
+
+          // System state
+          const [currentUser, setCurrentUser] = useState(null);
+          const [userRole, setUserRole] = useState(null);
+          const [workCards, setWorkCards] = useState([]);
+          const [draggedCard, setDraggedCard] = useState(null);
+          const [officeActiveTab, setOfficeActiveTab] = useState('schedule');
+          const [operationTemplatesState, setOperationTemplatesState] = useState(operationTemplates);
+          const [modelDatabase, setModelDatabase] = useState([]);
+          const [showCreateModal, setShowCreateModal] = useState(false);
+          const [editingCard, setEditingCard] = useState(null);
+          const [showModelModal, setShowModelModal] = useState(false);
+          const [editingModel, setEditingModel] = useState(null);
+          const [timelineView, setTimelineView] = useState('month');
+
+          // Initialize with sample data
+          useEffect(() => {
+            // Initialize work cards
+            if (workCards.length === 0) {
+              const sampleCards = [
+                {
+                  id: 'WC-001',
+                  productName: 'Нашийник "Кенди"',
+                  model: 'CY3MGDGD2',
+                  size: 'M',
+                  quantity: 20,
+                  priority: 1,
+                  status: 'В процес',
+                  createdDate: new Date().toISOString(),
+                  dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+                  images: [],
+                  operationGroups: [
+                    {
+                      id: 'group-1',
+                      name: 'кроене',
+                      assignedWorker: 'ГМ1',
+                      operations: operationTemplatesState.filter(op => op.group === 'кроене'),
+                      completed: false,
+                      completedDate: null,
+                      images: []
+                    },
+                    {
+                      id: 'group-2', 
+                      name: 'печат',
+                      assignedWorker: 'ЕМ1',
+                      operations: operationTemplatesState.filter(op => op.group === 'печат'),
+                      completed: false,
+                      completedDate: null,
+                      images: []
+                    },
+                    {
+                      id: 'group-3',
+                      name: 'монтаж', 
+                      assignedWorker: 'ММ1',
+                      operations: operationTemplatesState.filter(op => op.group === 'монтаж'),
+                      completed: false,
+                      completedDate: null,
+                      images: []
+                    }
+                  ]
+                }
+              ];
+              setWorkCards(sampleCards);
+            }
+
+            // Initialize model database
+            if (modelDatabase.length === 0) {
+              const sampleModels = [
+                {
+                  id: 'CY3MGDGD2',
+                  productName: 'Нашийник "Кенди"',
+                  category: 'Нашийници',
+                  sizes: ['S', 'M', 'L', 'XL'],
+                  defaultOperations: [
+                    { name: 'лице - бял бланк', timeSeconds: 10800, group: 'кроене' },
+                    { name: 'за гърбица - шпалт', timeSeconds: 3600, group: 'кроене' },
+                    { name: 'декорация - носталгия роуз', timeSeconds: 3600, group: 'кроене' },
+                    { name: 'печат с размер', timeSeconds: 5400, group: 'печат' },
+                    { name: 'монтаж шпалт + декорация', timeSeconds: 3600, group: 'монтаж' }
+                  ]
+                }
+              ];
+              setModelDatabase(sampleModels);
+            }
+          }, []);
+
+          // Login system
+          const handleLogin = (userId, role) => {
+            setCurrentUser(userId);
+            setUserRole(role);
+          };
+
+          const handleLogout = () => {
+            setCurrentUser(null);
+            setUserRole(null);
+          };
+
+          // Utility functions
+          const formatTime = (seconds) => {
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = seconds % 60;
+            
+            if (hours > 0) {
+              return `${hours}h ${minutes}m`;
+            } else if (minutes > 0) {
+              return `${minutes}m ${secs}s`;
+            } else {
+              return `${secs}s`;
+            }
+          };
+
+          const formatCurrency = (amount) => {
+            return `${amount.toFixed(2)} лв.`;
+          };
+
+          const formatDate = (dateString) => {
+            return new Date(dateString).toLocaleDateString('bg-BG');
+          };
+
+          const calculateGroupTime = (group, quantity = 1) => {
+            return group.operations.reduce((total, op) => total + (op.timeSeconds * quantity), 0);
+          };
+
+          const calculateGroupWage = (group, quantity = 1) => {
+            const timeHours = calculateGroupTime(group, quantity) / 3600;
+            const worker = workers[group.assignedWorker];
+            return worker ? timeHours * worker.hourlyRate : 0;
+          };
+
+          const getCardStatus = (card) => {
+            const now = new Date();
+            const dueDate = new Date(card.dueDate);
+            const hasStarted = card.operationGroups.some(group => group.assignedWorker);
+            const allCompleted = card.operationGroups.every(group => group.completed);
+            
+            if (allCompleted) return 'completed';
+            if (now > dueDate) return 'overdue';
+            if (hasStarted) return 'in-progress';
+            return 'new';
+          };
+
+          const getStatusColor = (status) => {
+            switch (status) {
+              case 'new': return 'bg-blue-500';
+              case 'in-progress': return 'bg-yellow-500';
+              case 'overdue': return 'bg-red-500';
+              case 'completed': return 'bg-green-500';
+              default: return 'bg-gray-500';
+            }
+          };
+
+          const getStatusText = (status) => {
+            switch (status) {
+              case 'new': return 'Нов';
+              case 'in-progress': return 'В процес';
+              case 'overdue': return 'Просрочен';
+              case 'completed': return 'Завършен';
+              default: return 'Неизвестен';
+            }
+          };
+
+          // Worker functions
+          const getWorkerAssignedTasks = (workerId) => {
+            const tasks = [];
+            workCards
+              .sort((a, b) => a.priority - b.priority)
+              .forEach(card => {
+                card.operationGroups.forEach(group => {
+                  if (group.assignedWorker === workerId && !group.completed) {
+                    tasks.push({
+                      cardId: card.id,
+                      groupId: group.id,
+                      cardName: `${card.productName} (${card.model})`,
+                      groupName: group.name,
+                      operations: group.operations,
+                      totalTime: calculateGroupTime(group, card.quantity),
+                      wage: calculateGroupWage(group, card.quantity),
+                      images: [...card.images, ...group.images],
+                      priority: card.priority,
+                      quantity: card.quantity
+                    });
+                  }
+                });
+              });
+            return tasks.slice(0, 5);
+          };
+
+          const markGroupCompleted = (cardId, groupId) => {
+            setWorkCards(prev => prev.map(card => {
+              if (card.id === cardId) {
+                return {
+                  ...card,
+                  operationGroups: card.operationGroups.map(group =>
+                    group.id === groupId
+                      ? { ...group, completed: true, completedDate: new Date().toISOString() }
+                      : group
+                  )
+                };
+              }
+              return card;
+            }));
+          };
+
+          // Login Screen
+          if (!currentUser) {
+            return React.createElement('div', {className: "min-h-screen bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center p-4"},
+              React.createElement('div', {className: "bg-white rounded-lg shadow-xl p-8 w-full max-w-md"},
+                React.createElement('div', {className: "text-center mb-8"},
+                  React.createElement('h1', {className: "text-3xl font-bold text-gray-800 mb-2"}, "Система за производство"),
+                  React.createElement('p', {className: "text-gray-600"}, "Кожени изделия")
+                ),
+                React.createElement('div', {className: "space-y-4"},
+                  React.createElement('div', null,
+                    React.createElement('h2', {className: "text-lg font-semibold mb-3 text-gray-700"}, "Офис персонал"),
+                    React.createElement('button', {
+                      onClick: () => handleLogin('office', 'office'),
+                      className: "w-full bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-lg flex items-center justify-center gap-2"
+                    },
+                      React.createElement(Settings, {size: 20}),
+                      "Вход като администратор"
+                    )
+                  ),
+                  React.createElement('div', null,
+                    React.createElement('h2', {className: "text-lg font-semibold mb-3 text-gray-700"}, "Работници"),
+                    React.createElement('div', {className: "grid grid-cols-2 gap-2"},
+                      Object.entries(workers).map(([workerId, worker]) => 
+                        React.createElement('button', {
+                          key: workerId,
+                          onClick: () => handleLogin(workerId, 'worker'),
+                          disabled: !worker.available,
+                          className: `p-3 rounded-lg flex flex-col items-center gap-1 text-sm ${
+                            worker.available
+                              ? 'bg-green-100 hover:bg-green-200 text-green-800'
+                              : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                          }`
+                        },
+                          React.createElement(User, {size: 16}),
+                          React.createElement('span', {className: "font-medium"}, workerId),
+                          React.createElement('span', {className: "text-xs"}, worker.name)
+                        )
+                      )
+                    )
+                  )
+                ),
+                React.createElement('div', {className: "mt-8 text-center text-sm text-gray-500"},
+                  React.createElement('p', null, "За тестване: Отворете множество табове за симулация на различни потребители")
+                )
+              )
+            );
+          }
+
+          // Office Dashboard
+          if (userRole === 'office') {
+            return React.createElement('div', {className: "min-h-screen bg-gray-50"},
+              React.createElement('div', {className: "bg-blue-600 text-white p-4 shadow-lg"},
+                React.createElement('div', {className: "max-w-7xl mx-auto flex justify-between items-center"},
+                  React.createElement('div', null,
+                    React.createElement('h1', {className: "text-2xl font-bold"}, "Офис панел"),
+                    React.createElement('p', {className: "text-blue-100"}, "Управление на работни карти")
+                  ),
+                  React.createElement('button', {
+                    onClick: handleLogout,
+                    className: "bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded flex items-center gap-2"
+                  },
+                    React.createElement(LogOut, {size: 16}),
+                    "Изход"
+                  )
+                )
+              ),
+              React.createElement('div', {className: "max-w-7xl mx-auto p-6"},
+                React.createElement('div', {className: "mb-6 border-b"},
+                  React.createElement('nav', {className: "flex"},
+                    React.createElement('button', {
+                      onClick: () => setOfficeActiveTab('schedule'),
+                      className: `px-6 py-3 font-medium ${
+                        officeActiveTab === 'schedule'
+                          ? 'border-b-2 border-blue-500 text-blue-600'
+                          : 'text-gray-500 hover:text-gray-700'
+                      }`
+                    },
+                      React.createElement(FileText, {className: "inline mr-2", size: 16}),
+                      "График (Работни карти)"
+                    )
+                  )
+                ),
+                officeActiveTab === 'schedule' && React.createElement('div', null,
+                  React.createElement('div', {className: "mb-6 flex justify-between items-center"},
+                    React.createElement('h2', {className: "text-2xl font-bold"}, "График на производството"),
+                    React.createElement('button', {
+                      onClick: () => setShowCreateModal(true),
+                      className: "bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg flex items-center gap-2"
+                    },
+                      React.createElement(Plus, {size: 20}),
+                      "Нова работна карта"
+                    )
+                  ),
+                  React.createElement('div', {className: "space-y-4"},
+                    workCards
+                      .sort((a, b) => a.priority - b.priority)
+                      .map((card) => 
+                        React.createElement('div', {
+                          key: card.id,
+                          className: "bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-500"
+                        },
+                          React.createElement('div', {className: "flex justify-between items-start mb-4"},
+                            React.createElement('div', null,
+                              React.createElement('div', {className: "flex items-center gap-3 mb-2"},
+                                React.createElement('div', {className: "bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium"},
+                                  `Приоритет ${card.priority}`
+                                ),
+                                React.createElement('h3', {className: "text-xl font-bold text-gray-800"}, card.productName)
+                              ),
+                              React.createElement('p', {className: "text-gray-600"}, `${card.model} (${card.size}) • Количество: ${card.quantity}`),
+                              React.createElement('div', {className: "flex items-center gap-4 mt-1"},
+                                React.createElement('p', {className: "text-sm text-gray-500"}, `Краен срок: ${formatDate(card.dueDate)}`),
+                                React.createElement('div', {className: "flex items-center gap-1"},
+                                  React.createElement('div', {className: `w-2 h-2 rounded-full ${getStatusColor(getCardStatus(card))}`}),
+                                  React.createElement('span', {className: "text-xs text-gray-600"}, getStatusText(getCardStatus(card)))
+                                )
+                              )
+                            )
+                          ),
+                          React.createElement('div', {className: "space-y-3"},
+                            card.operationGroups.map((group) =>
+                              React.createElement('div', {
+                                key: group.id,
+                                className: `p-4 rounded-lg border ${
+                                  group.completed ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
+                                }`
+                              },
+                                React.createElement('div', {className: "flex justify-between items-center mb-2"},
+                                  React.createElement('div', {className: "flex items-center gap-3"},
+                                    React.createElement('h4', {className: "font-semibold text-gray-800"}, group.name.toUpperCase()),
+                                    group.completed && React.createElement(CheckCircle, {className: "text-green-600", size: 20})
+                                  ),
+                                  React.createElement('div', {className: "flex items-center gap-2"},
+                                    React.createElement('select', {
+                                      value: group.assignedWorker,
+                                      onChange: (e) => {
+                                        const newWorkerId = e.target.value;
+                                        setWorkCards(prev => prev.map(c => 
+                                          c.id === card.id 
+                                            ? {
+                                                ...c,
+                                                operationGroups: c.operationGroups.map(g =>
+                                                  g.id === group.id ? { ...g, assignedWorker: newWorkerId, completed: false } : g
+                                                )
+                                              }
+                                            : c
+                                        ));
+                                      },
+                                      className: "border border-gray-300 rounded p-1 text-sm",
+                                      disabled: group.completed
+                                    },
+                                      React.createElement('option', {value: ""}, "Избери работник"),
+                                      Object.entries(workers)
+                                        .filter(([_, worker]) => worker.available)
+                                        .map(([workerId, worker]) =>
+                                          React.createElement('option', {key: workerId, value: workerId},
+                                            `${workerId} - ${worker.name}`
+                                          )
+                                        )
+                                    ),
+                                    React.createElement('button', {
+                                      onClick: () => {
+                                        setWorkCards(prev => prev.map(c => 
+                                          c.id === card.id 
+                                            ? {
+                                                ...c,
+                                                operationGroups: c.operationGroups.map(g =>
+                                                  g.id === group.id ? { ...g, completed: !g.completed, completedDate: !g.completed ? new Date().toISOString() : null } : g
+                                                )
+                                              }
+                                            : c
+                                        ));
+                                      },
+                                      className: `p-1 rounded text-sm ${
+                                        group.completed 
+                                          ? 'bg-yellow-200 hover:bg-yellow-300 text-yellow-800' 
+                                          : 'bg-green-200 hover:bg-green-300 text-green-800'
+                                      }`
+                                    },
+                                      group.completed ? 'Отмени' : 'Завърши'
+                                    )
+                                  )
+                                ),
+                                React.createElement('div', {className: "text-sm text-gray-600 mb-2"},
+                                  `Време: ${formatTime(calculateGroupTime(group, card.quantity))} • Заплата: ${formatCurrency(calculateGroupWage(group, card.quantity))}`
+                                ),
+                                React.createElement('div', {className: "text-xs text-gray-500"},
+                                  `Операции: ${group.operations.map(op => op.name).join(', ')}`
+                                )
+                              )
+                            )
+                          )
+                        )
+                      )
+                  )
+                )
+              )
+            );
+          }
+
+          // Worker Interface
+          if (userRole === 'worker') {
+            const workerTasks = getWorkerAssignedTasks(currentUser);
+            const worker = workers[currentUser];
+
+            return React.createElement('div', {className: "min-h-screen bg-gray-50"},
+              React.createElement('div', {className: "bg-green-600 text-white p-4 shadow-lg"},
+                React.createElement('div', {className: "max-w-4xl mx-auto flex justify-between items-center"},
+                  React.createElement('div', null,
+                    React.createElement('h1', {className: "text-2xl font-bold"}, `Здравей, ${worker.name}`),
+                    React.createElement('p', {className: "text-green-100"}, `Твоите задачи (${currentUser})`)
+                  ),
+                  React.createElement('button', {
+                    onClick: handleLogout,
+                    className: "bg-green-500 hover:bg-green-600 px-4 py-2 rounded flex items-center gap-2"
+                  },
+                    React.createElement(LogOut, {size: 16}),
+                    "Изход"
+                  )
+                )
+              ),
+              React.createElement('div', {className: "max-w-4xl mx-auto p-6"},
+                workerTasks.length === 0 ? 
+                  React.createElement('div', {className: "text-center py-12"},
+                    React.createElement(CheckCircle, {className: "mx-auto text-green-500 mb-4", size: 64}),
+                    React.createElement('h2', {className: "text-2xl font-bold text-gray-800 mb-2"}, "Няма активни задачи"),
+                    React.createElement('p', {className: "text-gray-600"}, "Всички твои задачи са завършени!")
+                  ) :
+                  React.createElement('div', {className: "space-y-6"},
+                    React.createElement('div', {className: "bg-blue-50 p-4 rounded-lg"},
+                      React.createElement('h2', {className: "font-bold text-blue-800 mb-2"}, "Приоритетни задачи"),
+                      React.createElement('p', {className: "text-blue-600 text-sm"}, "Показани са само най-важните задачи. Завърши ги по ред.")
+                    ),
+                    workerTasks.map((task) =>
+                      React.createElement('div', {
+                        key: `${task.cardId}-${task.groupId}`,
+                        className: "bg-white rounded-lg shadow-md p-6 border-l-4 border-green-500"
+                      },
+                        React.createElement('div', {className: "flex justify-between items-start mb-4"},
+                          React.createElement('div', null,
+                            React.createElement('div', {className: "flex items-center gap-3 mb-2"},
+                              React.createElement('div', {className: "bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium"},
+                                `Приоритет ${task.priority}`
+                              ),
+                              React.createElement('h3', {className: "text-xl font-bold text-gray-800"}, task.cardName)
+                            ),
+                            React.createElement('h4', {className: "text-lg font-semibold text-green-700 mb-2"}, task.groupName.toUpperCase()),
+                            React.createElement('div', {className: "text-gray-600 mb-3"},
+                              React.createElement('div', null, 
+                                "Време за работа: ", 
+                                React.createElement('span', {className: "font-medium"}, formatTime(task.totalTime))
+                              ),
+                              React.createElement('div', null,
+                                "Заплата: ",
+                                React.createElement('span', {className: "font-medium text-green-600"}, formatCurrency(task.wage))
+                              )
+                            )
+                          )
+                        ),
+                        React.createElement('div', {className: "mb-4"},
+                          React.createElement('h5', {className: "font-medium text-gray-700 mb-2"}, "Операции за изпълнение:"),
+                          React.createElement('div', {className: "space-y-1"},
+                            task.operations.map((operation, index) =>
+                              React.createElement('div', {key: index, className: "flex justify-between items-center text-sm"},
+                                React.createElement('span', null, operation.name),
+                                React.createElement('span', {className: "text-gray-500"}, formatTime(operation.timeSeconds))
+                              )
+                            )
+                          )
+                        ),
+                        React.createElement('button', {
+                          onClick: () => markGroupCompleted(task.cardId, task.groupId),
+                          className: "w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-medium flex items-center justify-center gap-2"
+                        },
+                          React.createElement(CheckCircle, {size: 20}),
+                          "Завърши задачата"
+                        )
+                      )
+                    )
+                  )
+              )
+            );
+          }
+
+          return null;
+        };
+
+        ReactDOM.render(React.createElement(LeatherProductionSystem), document.getElementById('root'));
+    </script>
+</body>
+</html>
